@@ -1,0 +1,50 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build a stand-in artifact
+        run: echo "build of $GITHUB_SHA" > app.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: app
+          path: app.txt
+
+  deploy-staging:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.example.com
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: app
+      - name: Deploy (stand-in)
+        env:
+          APP_NAME: ${{ vars.APP_NAME }}        # an environment variable, different per environment
+        run: echo "deploying $APP_NAME to staging, $(cat app.txt)"
+
+  deploy-production:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment:
+      name: production                         # required reviewers and branch rules live on this environment
+      url: https://example.com
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: app
+      - name: Deploy (stand-in)
+        env:
+          APP_NAME: ${{ vars.APP_NAME }}
+        run: echo "deploying $APP_NAME to production, $(cat app.txt)"
